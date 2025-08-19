@@ -2,41 +2,39 @@ import sqlite3
 import random
 import requests
 import os
-import shutil
-import webbrowser
-import pyperclip
 import time
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-
-# NEW imports for S3
 import boto3
 from botocore.exceptions import ClientError
+from dotenv import load_dotenv
 
-# Google Drive API scopes and credentials
-SCOPES = ['https://www.googleapis.com/auth/drive.file']
-CREDENTIALS_FILE = 'C:/Users/ssjag/OneDrive/Programming/ig automation/client_secret.json'
 
-# Instagram & Facebook App Credentials (keep tokens secure)
-FB_APP_ID = '1282234560118772'
-FB_APP_SECRET = 'c0a21df1d30567649df3ebbe4a6b1acf'
-fb_access_token = "REPLACE_WITH_YOUR_PAGE_TOKEN"
+FB_APP_ID = os.getenv("FB_APP_ID")
+FB_APP_SECRET = os.getenv("FB_APP_SECRET")
+IG_APP_ID = os.getenv("IG_APP_ID")
+IG_APP_SECRET = os.getenv("IG_APP_SECRET")
+ig_access_token = os.getenv("IG_ACCESS_TOKEN")
 
-IG_APP_ID = '8143980319030013'
-IG_APP_SECRET = 'f2c6f70653cf0d1601dd3d3a78a1ad18'
-ig_access_token = 'REPLACE_WITH_VALID_IG_ACCESS_TOKEN'  # must have instagram_content_publish
 
-# Instagram User IDs
-golf_ig_user_id = '17841458227887736'
-food_ig_user_id = '17841473324787008'
-fashion_ig_user_id = '17841460751104001'
+load_dotenv()
 
-food_fb_user_id = '616379148221623'
+PAGES = {
+    "food": {
+        "ig_user_id": os.getenv("FOOD_IG_USER_ID"),
+        "fb_page_id": os.getenv("FOOD_FB_PAGE_ID"),
+        "fb_access_token": os.getenv("FOOD_FB_ACCESS_TOKEN"),
+        "default_caption": "Follow for the best low calorie recipes to get your dream body this summer!\n#lowcalorie #mealprep #cooking #weightloss #loseweight",
+        "db": os.getenv("FOOD_DB")
+    },
+    "fashion": {
+        "ig_user_id": os.getenv("FASHION_IG_USER_ID"),
+        "fb_page_id": os.getenv("FASHION_FB_PAGE_ID"),
+        "fb_access_token": os.getenv("FASHION_FB_ACCESS_TOKEN"),
+        "default_caption": "Follow for more men's fashion inspiration!\n#oldmoney #starboy #summerstyle #mensfashion",
+        "db": os.getenv("FASHION_DB")
+    }
+}
 
-# ---------- DB & downloader functions (unchanged) ----------
+
 def get_random_video_from_db(db_name):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
@@ -94,12 +92,8 @@ def download(tiktok_link, creator):
 
 
 
-# ---------- NEW: S3 upload & presigned URL ----------
 def upload_to_s3_presigned(file_path, bucket_name="saroop-ig-uploads", object_name=None, expire_seconds=604800):
-    """
-    Uploads local file to S3 and returns a presigned GET URL valid for expire_seconds (default 7 days).
-    Requires AWS credentials in env or ~/.aws/credentials.
-    """
+
 
     if object_name is None:
         object_name = os.path.basename(file_path)
@@ -127,20 +121,9 @@ def upload_to_s3_presigned(file_path, bucket_name="saroop-ig-uploads", object_na
     except ClientError as e:
         raise Exception(f"Failed to generate presigned URL: {e}")
 
-# ---------- Updated post_to_instagram uses S3 presigned URL ----------
-def post_to_instagram(video_path, caption, ig_user_id):
-    """
-    Accepts a local file path; uploads it to S3 with a presigned URL, then
-    creates an IG media container and publishes it.
-    """
-    # Upload to S3 and get a direct presigned URL
-    try:
-        # uses S3_BUCKET_NAME env var if set
-        video_url = upload_to_s3_presigned(video_path)
-    except Exception as e:
-        print("Failed to upload to S3:", e)
-        return None
 
+def post_to_instagram(video_path, caption, ig_user_id, ig_access_token):
+    video_url = upload_to_s3_presigned(video_path)
     url = f'https://graph.facebook.com/v17.0/{ig_user_id}/media'
     payload = {
         'media_type': 'REELS',
@@ -152,72 +135,59 @@ def post_to_instagram(video_path, caption, ig_user_id):
     if response.status_code != 200:
         print(f'Error creating media container: {response.json()}')
         return None
-
     container_id = response.json().get('id')
     print(f'Created media container with ID: {container_id}')
 
-    max_retries = 30
-    sleep_time = 10
-
-    for attempt in range(max_retries):
+    # Poll until published
+    for _ in range(30):
         publish_url = f'https://graph.facebook.com/v17.0/{ig_user_id}/media_publish'
         publish_payload = {'creation_id': container_id, 'access_token': ig_access_token}
         publish_response = requests.post(publish_url, data=publish_payload)
-        
         if publish_response.status_code == 200:
             media_id = publish_response.json().get('id')
             print(f'Published media with ID: {media_id}')
             return media_id
+        elif publish_response.json().get('error', {}).get('code') == 9007:
+            print("Media not ready. Retrying...")
+            time.sleep(10)
         else:
-            error_data = publish_response.json()
-            if error_data.get('error', {}).get('code') == 9007:
-                print(f"Attempt {attempt + 1}: Media not ready. Retrying in {sleep_time} seconds...")
-                time.sleep(sleep_time)
-            else:
-                print(f"Error publishing media container: {publish_response.json()}")
-                return None
-
-    print("Failed to publish media after multiple attempts.")
+            print(f"Error publishing: {publish_response.json()}")
+            return None
     return None
 
-# ---------- Facebook upload unchanged ----------
-def post_to_facebook_page(video_path, caption, fb_page_id):
-    url = f'https://graph.facebook.com/v17.0/{fb_page_id}/videos'
-    files = {'source': open(video_path, 'rb')}
-    payload = {
-        'description': caption,
-        'access_token': fb_access_token,
-        'published': 'true'
-    }
-    response = requests.post(url, files=files, data=payload)
-    if response.status_code != 200:
-        print(f'Error uploading video: {response.json()}')
+
+def post_to_facebook_page(video_path, caption, fb_page_id, fb_access_token):
+    if not fb_page_id or not fb_access_token:
+        print("Skipping Facebook upload (no fb_page_id or token configured).")
         return None
-    video_id = response.json().get('id')
-    print(f'Video uploaded successfully. Video ID: {video_id}')
-    return video_id
+    url = f'https://graph.facebook.com/v17.0/{fb_page_id}/videos'
+    with open(video_path, 'rb') as f:
+        files = {'source': f}
+        payload = {
+            'description': caption,
+            'access_token': fb_access_token,
+            'published': 'true'
+        }
+        response = requests.post(url, files=files, data=payload)
+    if response.status_code != 200:
+        print(f'Error uploading to Facebook: {response.json()}')
+        return None
+    print(f'FB video uploaded: {response.json()}')
+    return response.json().get('id')
 
-# -------------------------
-# Main flow (unchanged logic, uses local path for IG and FB)
-# -------------------------
-tiktok_link, creator = get_random_video_from_db('foodvids.db')
-if tiktok_link:
+
+
+for page_name, page_info in PAGES.items():
+    print(f"\n--- Processing page: {page_name} ---")
+    tiktok_link, creator = get_random_video_from_db(page_info["db"])
+    if not tiktok_link:
+        print(f"No unposted videos found for {page_name}.")
+        continue
+
     video_path = download(tiktok_link, creator)
-    s3_url = upload_to_s3_presigned(video_path)
+    caption = f"{page_info['default_caption']}\nvia @{creator}"
 
-    caption = f"Follow for the best low calorie recipes to get your dream body this summer!\nvia @{creator}\n#lowcalorie #mealprep #cooking #weightloss #loseweight"
-    # Post to Instagram using S3 presigned URL under the hood
-    post_to_instagram(video_path, caption, food_ig_user_id)
-    # Post to Facebook from local file
-    post_to_facebook_page(video_path, caption, food_fb_user_id)
-else:
-    print("No unposted food videos found.")
+    # Instagram
+    post_to_instagram(video_path, caption, page_info["ig_user_id"], ig_access_token)
 
-tiktok_link, creator = get_random_video_from_db('mensfashionvids.db')
-if tiktok_link:
-    video_path = download(tiktok_link, creator)
-    s3_url = upload_to_s3_presigned(video_path)
-    caption = f"Follow for more men's fashion inspiration!\nvia @{creator}\n#oldmoney #starboy #summerstyle #grisch #mensfashion"
-    post_to_instagram(video_path, caption, fashion_ig_user_id)
-else:
-    print("No unposted fashion videos found.")
+    post_to_facebook_page(video_path, caption, page_info["fb_page_id"], page_info["fb_access_token"])
