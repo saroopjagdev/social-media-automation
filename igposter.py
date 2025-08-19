@@ -8,29 +8,27 @@ from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
 
-FB_APP_ID = os.getenv("FB_APP_ID")
-FB_APP_SECRET = os.getenv("FB_APP_SECRET")
-IG_APP_ID = os.getenv("IG_APP_ID")
-IG_APP_SECRET = os.getenv("IG_APP_SECRET")
-ig_access_token = os.getenv("IG_ACCESS_TOKEN")
+FB_APP_ID = '1282234560118772'
+FB_APP_SECRET = 'c0a21df1d30567649df3ebbe4a6b1acf'
+IG_APP_ID = '8143980319030013'
+IG_APP_SECRET = 'f2c6f70653cf0d1601dd3d3a78a1ad18'
+ig_access_token = 'EABzu6C35Ov0BPHGrf0IKmRVm64o76pZA2jQTB9JhefZBhpAadq424LMuGvjQ9ADLXZATorsdn9cEtm8HzkG0cmZCIS6bSpLbv0arOZAWJpoebZAnu6DZAEjxFtCrNqETC3BJUtJsfb9xwCIfc5hPN44vZBYtjL96jLk1mYATdBmdZCusAYxLzZAX4smKUbXLTo'  # must have instagram_content_publish
 
-
-load_dotenv()
 
 PAGES = {
     "food": {
-        "ig_user_id": os.getenv("FOOD_IG_USER_ID"),
-        "fb_page_id": os.getenv("FOOD_FB_PAGE_ID"),
-        "fb_access_token": os.getenv("FOOD_FB_ACCESS_TOKEN"),
+        "ig_user_id": "17841473324787008",
+        "fb_page_id": "330152473524888",
+        "fb_access_token": "EAASOL395fZCQBPCFXzgBn6BPlUp8wLRS8AqyAE3of0LfLnXqnXWRZA8dLucFDqBCVz0ZBjhHhG9gavjhCZClwXQGjSa5mrEPtmczeiqFESuzNsKt2wXbCdPTCqWFRx3sZCx1g4G3W8PDYwqCwyWJtIZBJsBXsc4jNPuhThoCAnqH1u0txryxARm5UAqVygPICeZADUOI9vi",
         "default_caption": "Follow for the best low calorie recipes to get your dream body this summer!\n#lowcalorie #mealprep #cooking #weightloss #loseweight",
-        "db": os.getenv("FOOD_DB")
+        "db": "foodvids.db"
     },
     "fashion": {
-        "ig_user_id": os.getenv("FASHION_IG_USER_ID"),
-        "fb_page_id": os.getenv("FASHION_FB_PAGE_ID"),
-        "fb_access_token": os.getenv("FASHION_FB_ACCESS_TOKEN"),
+        "ig_user_id": "17841460751104001",
+        "fb_page_id": "614104031787280",
+        "fb_access_token": "EAASOL395fZCQBPNqgz7jZBCrYiFcWyiwgspWTA6TcZAmPe45nzZAvS9IZBDYLaiR7dRZCNg1uTS16iBsMBg2YyomYxfQTIUZCNFpRCWuy2WyCS1AyGw4PHGZAnG6jG5A6DpYTQaDaS8gWBopwhfFoRBcCbNdzAuzZB10Vv12QIypFCAasGfOQqBCJ27quhY1TWB1NILxDyn5M",
         "default_caption": "Follow for more men's fashion inspiration!\n#oldmoney #starboy #summerstyle #mensfashion",
-        "db": os.getenv("FASHION_DB")
+        "db": "mensfashionvids.db"
     }
 }
 
