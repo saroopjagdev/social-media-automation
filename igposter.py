@@ -5,10 +5,7 @@ import os
 import time
 import boto3
 from botocore.exceptions import ClientError
-from info import FB_APP_ID, FB_APP_SECRET, IG_APP_ID, IG_APP_SECRET, IG_ACCESS_TOKEN, PAGES
-
-
-
+from info import FB_APP_ID, FB_APP_SECRET, IG_APP_ID, IG_APP_SECRET, ig_access_token, PAGES
 
 
 
