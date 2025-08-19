@@ -5,9 +5,24 @@ import os
 import time
 import boto3
 from botocore.exceptions import ClientError
-from info import FB_APP_ID, FB_APP_SECRET, IG_APP_ID, IG_APP_SECRET, ig_access_token, PAGES
+from info import FB_APP_ID, FB_APP_SECRET, IG_APP_ID, IG_APP_SECRET, ig_access_token, food_fb_access_token, fashion_fb_access_token
 
-
+PAGES = {
+    "food": {
+        "ig_user_id": "17841473324787008",
+        "fb_page_id": "330152473524888",
+        "fb_access_token": food_fb_access_token,
+        "default_caption": "Follow for the best low calorie recipes to get your dream body this summer!\n#lowcalorie #mealprep #cooking #weightloss #loseweight",
+        "db": "foodvids.db"
+    },
+    "fashion": {
+        "ig_user_id": "17841460751104001",
+        "fb_page_id": "614104031787280",
+        "fb_access_token": fashion_fb_access_token,
+        "default_caption": "Follow for more men's fashion inspiration!\n#oldmoney #starboy #summerstyle #mensfashion",
+        "db": "mensfashionvids.db"
+    }
+}
 
 def get_random_video_from_db(db_name):
     conn = sqlite3.connect(db_name)
