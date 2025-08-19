@@ -92,47 +92,14 @@ def download(tiktok_link, creator):
     print(f"Video downloaded and saved to: {new_filepath}")
     return new_filepath
 
-def upload_to_google_drive(file_path):
-    creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-            creds = flow.run_local_server(port=0)
-        
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
 
-    service = build('drive', 'v3', credentials=creds)
-    
-    file_metadata = {'name': os.path.basename(file_path), 'mimeType': 'video/mp4'}
-    media = MediaFileUpload(file_path, mimetype='video/mp4')
-    
-    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    file_id = file.get('id')
-    
-    service.permissions().create(fileId=file_id, body={'type': 'anyone', 'role': 'reader'}).execute()
-    
-    file_url = f"https://drive.google.com/uc?id={file_id}&export=download"
-    print(f"File uploaded to Google Drive. Public URL: {file_url}")
-    
-    return file_url
 
 # ---------- NEW: S3 upload & presigned URL ----------
-def upload_to_s3_presigned(file_path, bucket_name=None, object_name=None, expire_seconds=604800):
+def upload_to_s3_presigned(file_path, bucket_name="saroop-ig-uploads", object_name=None, expire_seconds=604800):
     """
     Uploads local file to S3 and returns a presigned GET URL valid for expire_seconds (default 7 days).
     Requires AWS credentials in env or ~/.aws/credentials.
     """
-    # Get bucket from environment if not provided
-    if bucket_name is None:
-        bucket_name = os.environ.get('S3_BUCKET_NAME')
-        if not bucket_name:
-            raise Exception("S3 bucket name not provided. Set S3_BUCKET_NAME env var or pass bucket_name.")
 
     if object_name is None:
         object_name = os.path.basename(file_path)
@@ -236,7 +203,8 @@ def post_to_facebook_page(video_path, caption, fb_page_id):
 tiktok_link, creator = get_random_video_from_db('foodvids.db')
 if tiktok_link:
     video_path = download(tiktok_link, creator)
-    google_drive_url = upload_to_google_drive(video_path)  # optional
+    s3_url = upload_to_s3_presigned(video_path)
+
     caption = f"Follow for the best low calorie recipes to get your dream body this summer!\nvia @{creator}\n#lowcalorie #mealprep #cooking #weightloss #loseweight"
     # Post to Instagram using S3 presigned URL under the hood
     post_to_instagram(video_path, caption, food_ig_user_id)
@@ -248,7 +216,7 @@ else:
 tiktok_link, creator = get_random_video_from_db('mensfashionvids.db')
 if tiktok_link:
     video_path = download(tiktok_link, creator)
-    google_drive_url = upload_to_google_drive(video_path)
+    s3_url = upload_to_s3_presigned(video_path)
     caption = f"Follow for more men's fashion inspiration!\nvia @{creator}\n#oldmoney #starboy #summerstyle #grisch #mensfashion"
     post_to_instagram(video_path, caption, fashion_ig_user_id)
 else:
